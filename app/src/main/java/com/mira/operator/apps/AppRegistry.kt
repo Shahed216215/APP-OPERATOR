@@ -1,3 +1,4 @@
+
 package com.mira.operator.apps
 
 data class AllowedApp(
@@ -11,14 +12,6 @@ object AppRegistry {
         AllowedApp(
             packageName = "com.openai.chatgpt",
             displayName = "ChatGPT"
-        ),
-        AllowedApp(
-            packageName = "com.google.android.googlequicksearchbox",
-            displayName = "Gemini"
-        ),
-        AllowedApp(
-            packageName = "com.android.chrome",
-            displayName = "Google Chrome"
         )
     )
 
