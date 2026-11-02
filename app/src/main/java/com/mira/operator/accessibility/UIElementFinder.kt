@@ -20,12 +20,6 @@ object UIElementFinder {
     private const val MAX_NODES = 500
     private const val MAX_DEPTH = 30
 
-    /**
-     * Finds visible UI elements only inside an authorized app.
-     *
-     * Password and editable-field contents are never collected.
-     * Results remain in memory and are not logged or persisted.
-     */
     fun findElements(
         root: AccessibilityNodeInfo?,
         maxNodes: Int = MAX_NODES
@@ -33,7 +27,8 @@ object UIElementFinder {
 
         if (root == null) return emptyList()
 
-        val packageName = root.packageName?.toString() ?: return emptyList()
+        val packageName = root.packageName?.toString()
+            ?: return emptyList()
 
         if (!AppRegistry.isAllowed(packageName)) {
             return emptyList()
@@ -41,8 +36,8 @@ object UIElementFinder {
 
         val safeLimit = maxNodes.coerceIn(1, MAX_NODES)
         val results = mutableListOf<UIElementSnapshot>()
-
         val stack = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
+
         stack.addLast(root to 0)
 
         try {
@@ -50,50 +45,64 @@ object UIElementFinder {
 
                 val (node, depth) = stack.removeLast()
 
-                if (depth > MAX_DEPTH) continue
+                try {
+                    if (depth > MAX_DEPTH) continue
 
-                val isPassword = node.isPassword
-                val isEditable = node.isEditable
+                    val isPassword = node.isPassword
+                    val isEditable = node.isEditable
 
-                val safeText = if (!isPassword && !isEditable) {
-                    node.text
-                        ?.toString()
-                        ?.takeIf { it.isNotBlank() }
-                        ?.take(2000)
-                } else {
-                    null
-                }
+                    val safeText = if (!isPassword && !isEditable) {
+                        node.text?.toString()
+                            ?.takeIf { it.isNotBlank() }
+                            ?.take(2000)
+                    } else {
+                        null
+                    }
 
-                val bounds = Rect()
-                node.getBoundsInScreen(bounds)
+                    val bounds = Rect()
+                    node.getBoundsInScreen(bounds)
 
-                results.add(
-                    UIElementSnapshot(
-                        text = safeText,
-                        className = node.className?.toString(),
-                        viewId = node.viewIdResourceName,
-                        isClickable = node.isClickable,
-                        isEditable = isEditable,
-                        isEnabled = node.isEnabled,
-                        bounds = Rect(bounds),
-                        depth = depth
+                    results.add(
+                        UIElementSnapshot(
+                            text = safeText,
+                            className = node.className?.toString(),
+                            viewId = node.viewIdResourceName,
+                            isClickable = node.isClickable,
+                            isEditable = isEditable,
+                            isEnabled = node.isEnabled,
+                            bounds = Rect(bounds),
+                            depth = depth
+                        )
                     )
-                )
 
-                if (depth < MAX_DEPTH) {
-                    for (index in 0 until node.childCount) {
-                        if (results.size + stack.size >= safeLimit) {
-                            break
+                    if (depth < MAX_DEPTH) {
+                        for (index in 0 until node.childCount) {
+
+                            if (results.size + stack.size >= safeLimit) {
+                                break
+                            }
+
+                            val child = node.getChild(index) ?: continue
+                            stack.addLast(child to depth + 1)
                         }
+                    }
 
-                        val child = node.getChild(index) ?: continue
-                        stack.addLast(child to depth + 1)
+                } finally {
+                    // The root belongs to the caller.
+                    // Child nodes obtained through getChild() are owned here.
+                    if (node !== root) {
+                        node.recycle()
                     }
                 }
             }
+
         } finally {
             while (stack.isNotEmpty()) {
-                stack.removeLast().first.recycle()
+                val pendingNode = stack.removeLast().first
+
+                if (pendingNode !== root) {
+                    pendingNode.recycle()
+                }
             }
         }
 
@@ -107,8 +116,8 @@ object UIElementFinder {
 
         if (query.isBlank()) return emptyList()
 
-        return elements.filter { element ->
-            element.text?.contains(query, ignoreCase = true) == true
+        return elements.filter {
+            it.text?.contains(query, ignoreCase = true) == true
         }
     }
 
