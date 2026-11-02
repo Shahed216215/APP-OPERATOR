@@ -1,3 +1,4 @@
+
 package com.mira.operator.accessibility
 
 import android.graphics.Rect
@@ -19,7 +20,21 @@ object UIElementFinder {
 
     private const val MAX_NODES = 500
     private const val MAX_DEPTH = 30
+    private const val MAX_TEXT_LENGTH = 2000
 
+    /**
+     * Inspects an authorized app's visible UI.
+     *
+     * Security:
+     * - Rejects packages outside AppRegistry.
+     * - Never reads password or editable-field contents.
+     * - Does not log or persist UI text.
+     * - Does not perform clicks or text entry.
+     *
+     * Ownership:
+     * - The caller retains ownership of root.
+     * - Child nodes obtained with getChild() are recycled here.
+     */
     fun findElements(
         root: AccessibilityNodeInfo?,
         maxNodes: Int = MAX_NODES
@@ -36,25 +51,31 @@ object UIElementFinder {
 
         val safeLimit = maxNodes.coerceIn(1, MAX_NODES)
         val results = mutableListOf<UIElementSnapshot>()
-        val stack = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
 
+        val stack = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
         stack.addLast(root to 0)
 
         try {
             while (stack.isNotEmpty() && results.size < safeLimit) {
 
                 val (node, depth) = stack.removeLast()
+                val isRoot = node === root
 
                 try {
                     if (depth > MAX_DEPTH) continue
+
+                    // Verify the node still belongs to an authorized app.
+                    val nodePackage = node.packageName?.toString()
+                    if (nodePackage != packageName) continue
 
                     val isPassword = node.isPassword
                     val isEditable = node.isEditable
 
                     val safeText = if (!isPassword && !isEditable) {
-                        node.text?.toString()
+                        node.text
+                            ?.toString()
                             ?.takeIf { it.isNotBlank() }
-                            ?.take(2000)
+                            ?.take(MAX_TEXT_LENGTH)
                     } else {
                         null
                     }
@@ -88,15 +109,15 @@ object UIElementFinder {
                     }
 
                 } finally {
-                    // The root belongs to the caller.
-                    // Child nodes obtained through getChild() are owned here.
-                    if (node !== root) {
+                    // Do not recycle the caller-owned root node.
+                    if (!isRoot) {
                         node.recycle()
                     }
                 }
             }
 
         } finally {
+            // Recycle all child nodes that were queued but not processed.
             while (stack.isNotEmpty()) {
                 val pendingNode = stack.removeLast().first
 
@@ -116,8 +137,11 @@ object UIElementFinder {
 
         if (query.isBlank()) return emptyList()
 
-        return elements.filter {
-            it.text?.contains(query, ignoreCase = true) == true
+        return elements.filter { element ->
+            element.text?.contains(
+                query,
+                ignoreCase = true
+            ) == true
         }
     }
 
