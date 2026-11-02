@@ -1,3 +1,4 @@
+
 package com.mira.operator
 
 import android.app.Activity
@@ -8,6 +9,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.mira.operator.accessibility.OperatorSafetyGate
 import com.mira.operator.apps.AppRegistry
 
 class MainActivity : Activity() {
@@ -28,7 +30,6 @@ class MainActivity : Activity() {
         }
 
         statusText = TextView(this).apply {
-            text = "Operator initialized.\nAutomation engine is not active."
             textSize = 15f
             setPadding(0, 24, 0, 24)
         }
@@ -36,38 +37,51 @@ class MainActivity : Activity() {
         val accessibilityButton = Button(this).apply {
             text = "Open Accessibility Settings"
             setOnClickListener {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                startActivity(
+                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                )
             }
         }
 
         val chatGptButton = Button(this).apply {
             text = "Open ChatGPT"
             setOnClickListener {
-                openAllowedApp("com.openai.chatgpt")
-            }
-        }
+                if (OperatorSafetyGate.isStopped(this@MainActivity)) {
+                    showMessage("Resume the Operator before using it.")
+                    return@setOnClickListener
+                }
 
-        val geminiButton = Button(this).apply {
-            text = "Open Gemini"
-            setOnClickListener {
-                openAllowedApp("com.google.android.googlequicksearchbox")
+                openAllowedApp("com.openai.chatgpt")
             }
         }
 
         val stopButton = Button(this).apply {
             text = "Emergency Stop"
             setOnClickListener {
-                getSharedPreferences("operator", MODE_PRIVATE)
-                    .edit()
-                    .putBoolean("emergency_stop", true)
-                    .apply()
+                val saved = OperatorSafetyGate.stop(this@MainActivity)
 
-                statusText.text = "Emergency Stop is ON."
-                Toast.makeText(
-                    this@MainActivity,
-                    "Automation stopped",
-                    Toast.LENGTH_SHORT
-                ).show()
+                refreshStatus()
+
+                if (saved) {
+                    showMessage("Emergency Stop is ON.")
+                } else {
+                    showMessage("Unable to save Stop state.")
+                }
+            }
+        }
+
+        val resumeButton = Button(this).apply {
+            text = "Resume Operator"
+            setOnClickListener {
+                val saved = OperatorSafetyGate.resume(this@MainActivity)
+
+                refreshStatus()
+
+                if (saved) {
+                    showMessage("Operator resumed by user.")
+                } else {
+                    showMessage("Resume failed. Operator remains stopped.")
+                }
             }
         }
 
@@ -75,29 +89,61 @@ class MainActivity : Activity() {
         layout.addView(statusText)
         layout.addView(accessibilityButton)
         layout.addView(chatGptButton)
-        layout.addView(geminiButton)
         layout.addView(stopButton)
+        layout.addView(resumeButton)
 
         setContentView(layout)
+        refreshStatus()
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        if (::statusText.isInitialized) {
+            refreshStatus()
+        }
+    }
+
+    private fun refreshStatus() {
+        statusText.text =
+            if (OperatorSafetyGate.isStopped(this)) {
+                "Status: STOPPED\nAutomation is disabled."
+            } else {
+                "Status: RESUMED\nUser authorization is active."
+            }
     }
 
     private fun openAllowedApp(packageName: String) {
-        if (!AppRegistry.isAllowed(packageName)) {
-            Toast.makeText(this, "App is not allowlisted", Toast.LENGTH_SHORT).show()
+        if (OperatorSafetyGate.isStopped(this)) {
+            showMessage("Operator is stopped.")
             return
         }
 
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        if (!AppRegistry.isAllowed(packageName)) {
+            showMessage("App is not allowlisted.")
+            return
+        }
+
+        val launchIntent =
+            packageManager.getLaunchIntentForPackage(packageName)
 
         if (launchIntent == null) {
-            Toast.makeText(this, "App is not installed or unavailable", Toast.LENGTH_SHORT).show()
+            showMessage("ChatGPT is not installed or unavailable.")
             return
         }
 
         try {
             startActivity(launchIntent)
         } catch (e: Exception) {
-            Toast.makeText(this, "Unable to open app", Toast.LENGTH_SHORT).show()
+            showMessage("Unable to open ChatGPT.")
         }
+    }
+
+    private fun showMessage(message: String) {
+        Toast.makeText(
+            this,
+            message,
+            Toast.LENGTH_SHORT
+        ).show()
     }
 }
