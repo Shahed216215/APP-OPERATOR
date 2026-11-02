@@ -1,3 +1,4 @@
+
 package com.mira.operator.accessibility
 
 import android.accessibilityservice.AccessibilityService
@@ -22,17 +23,21 @@ class OperatorAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-
         isConnected = true
+        activePackageName = null
         Log.i(TAG, "Accessibility service connected")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (OperatorSafetyGate.isStopped(this)) {
+            activePackageName = null
+            return
+        }
+
         if (event == null) return
 
         val packageName = event.packageName?.toString() ?: return
 
-        // Only inspect user-authorized applications.
         if (!AppRegistry.isAllowed(packageName)) {
             activePackageName = null
             return
@@ -49,20 +54,28 @@ class OperatorAccessibilityService : AccessibilityService() {
     }
 
     private fun inspectActiveWindow() {
-        if (!isConnected) return
+        if (!isConnected || OperatorSafetyGate.isStopped(this)) {
+            activePackageName = null
+            return
+        }
 
         val root: AccessibilityNodeInfo =
             rootInActiveWindow ?: return
 
         try {
-            val packageName = root.packageName?.toString() ?: return
-
-            if (!AppRegistry.isAllowed(packageName)) {
+            if (OperatorSafetyGate.isStopped(this)) {
+                activePackageName = null
                 return
             }
 
-            // Phase 1: Observe only.
-            // No clicking, typing, sending, or deleting.
+            val packageName = root.packageName?.toString() ?: return
+
+            if (!AppRegistry.isAllowed(packageName)) {
+                activePackageName = null
+                return
+            }
+
+            // Observe only. No clicking, typing, sending, or deleting.
             Log.d(TAG, "Authorized app window observed")
 
         } finally {
@@ -78,9 +91,7 @@ class OperatorAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         isConnected = false
         activePackageName = null
-
         Log.i(TAG, "Accessibility service disconnected")
-
         super.onDestroy()
     }
 }
