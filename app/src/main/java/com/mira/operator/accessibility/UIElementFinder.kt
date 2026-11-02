@@ -22,12 +22,32 @@ object UIElementFinder {
     private const val MAX_DEPTH = 30
     private const val MAX_TEXT_LENGTH = 2000
 
+    private val sensitiveKeywordPattern = Regex(
+        """(?i)\b(password|passcode|passwd|secret|otp|one.time.password|verification code|security code|cvv|cvc|card number|credit card|debit card|bank account|routing number|payment|checkout|transaction|wallet)\b|পাসওয়ার্ড|পাসওয়ার্ড|ওটিপি|এককালীন কোড|ভেরিফিকেশন কোড|নিরাপত্তা কোড|পিন|কার্ড নম্বর|কার্ড|পেমেন্ট|ব্যাংক|লেনদেন"""
+    )
+
+    private val longCardNumberPattern = Regex(
+        """(?<!\d)(?:\d[ -]?){13,19}(?!\d)"""
+    )
+
+    /**
+     * Conservative text filter.
+     *
+     * This is heuristic protection, not guaranteed detection.
+     * Unknown or ambiguous sensitive formats may remain undetected.
+     */
+    private fun isSensitiveText(text: String): Boolean {
+        return sensitiveKeywordPattern.containsMatchIn(text) ||
+            longCardNumberPattern.containsMatchIn(text)
+    }
+
     /**
      * Inspects an authorized app's visible UI.
      *
      * Security:
      * - Rejects packages outside AppRegistry.
      * - Never reads password or editable-field contents.
+     * - Filters recognizable sensitive text.
      * - Does not log or persist UI text.
      * - Does not perform clicks or text entry.
      *
@@ -64,20 +84,23 @@ object UIElementFinder {
                 try {
                     if (depth > MAX_DEPTH) continue
 
-                    // Verify the node still belongs to an authorized app.
                     val nodePackage = node.packageName?.toString()
                     if (nodePackage != packageName) continue
 
                     val isPassword = node.isPassword
                     val isEditable = node.isEditable
 
-                    val safeText = if (!isPassword && !isEditable) {
+                    val candidateText = if (!isPassword && !isEditable) {
                         node.text
                             ?.toString()
                             ?.takeIf { it.isNotBlank() }
                             ?.take(MAX_TEXT_LENGTH)
                     } else {
                         null
+                    }
+
+                    val safeText = candidateText?.takeUnless {
+                        isSensitiveText(it)
                     }
 
                     val bounds = Rect()
@@ -109,7 +132,6 @@ object UIElementFinder {
                     }
 
                 } finally {
-                    // Do not recycle the caller-owned root node.
                     if (!isRoot) {
                         node.recycle()
                     }
@@ -117,7 +139,6 @@ object UIElementFinder {
             }
 
         } finally {
-            // Recycle all child nodes that were queued but not processed.
             while (stack.isNotEmpty()) {
                 val pendingNode = stack.removeLast().first
 
@@ -135,7 +156,9 @@ object UIElementFinder {
         query: String
     ): List<UIElementSnapshot> {
 
-        if (query.isBlank()) return emptyList()
+        if (query.isBlank() || isSensitiveText(query)) {
+            return emptyList()
+        }
 
         return elements.filter { element ->
             element.text?.contains(
