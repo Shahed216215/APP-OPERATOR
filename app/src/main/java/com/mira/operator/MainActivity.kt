@@ -2,7 +2,11 @@
 package com.mira.operator
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
@@ -15,6 +19,12 @@ import com.mira.operator.apps.AppRegistry
 class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
+
+    companion object {
+        private const val REQUEST_SELECT_APK = 4101
+        private const val APK_MIME_TYPE =
+            "application/vnd.android.package-archive"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,8 +60,14 @@ class MainActivity : Activity() {
                     showMessage("Resume the Operator before using it.")
                     return@setOnClickListener
                 }
-
                 openAllowedApp("com.openai.chatgpt")
+            }
+        }
+
+        val installApkButton = Button(this).apply {
+            text = "Install APK (Downloads / Google Drive)"
+            setOnClickListener {
+                beginApkSelection()
             }
         }
 
@@ -59,7 +75,6 @@ class MainActivity : Activity() {
             text = "Emergency Stop"
             setOnClickListener {
                 val saved = OperatorSafetyGate.stop(this@MainActivity)
-
                 refreshStatus()
 
                 if (saved) {
@@ -74,7 +89,6 @@ class MainActivity : Activity() {
             text = "Resume Operator"
             setOnClickListener {
                 val saved = OperatorSafetyGate.resume(this@MainActivity)
-
                 refreshStatus()
 
                 if (saved) {
@@ -89,6 +103,7 @@ class MainActivity : Activity() {
         layout.addView(statusText)
         layout.addView(accessibilityButton)
         layout.addView(chatGptButton)
+        layout.addView(installApkButton)
         layout.addView(stopButton)
         layout.addView(resumeButton)
 
@@ -98,9 +113,103 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-
         if (::statusText.isInitialized) {
             refreshStatus()
+        }
+    }
+
+    @Deprecated("Retained for compatibility with current Activity structure.")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode != REQUEST_SELECT_APK) return
+
+        if (resultCode != RESULT_OK) {
+            showMessage("APK selection cancelled.")
+            return
+        }
+
+        val apkUri = data?.data
+
+        if (apkUri == null) {
+            showMessage("No APK file was selected.")
+            return
+        }
+
+        if (apkUri.scheme != "content") {
+            showMessage("Unsupported file source. Use the system file picker.")
+            return
+        }
+
+        launchSystemPackageInstaller(apkUri)
+    }
+
+    private fun beginApkSelection() {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
+            try {
+                val settingsIntent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                )
+                startActivity(settingsIntent)
+                showMessage(
+                    "Allow APK installation, return, and tap Install APK again."
+                )
+            } catch (e: ActivityNotFoundException) {
+                showMessage("Unknown-app install settings are unavailable.")
+            } catch (e: Exception) {
+                showMessage("Unable to open APK permission settings.")
+            }
+            return
+        }
+
+        val pickerIntent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = APK_MIME_TYPE
+        }
+
+        try {
+            startActivityForResult(
+                pickerIntent,
+                REQUEST_SELECT_APK
+            )
+        } catch (e: ActivityNotFoundException) {
+            showMessage("No compatible file picker is available.")
+        } catch (e: Exception) {
+            showMessage("Unable to open the file picker.")
+        }
+    }
+
+    private fun launchSystemPackageInstaller(apkUri: Uri) {
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, APK_MIME_TYPE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = ClipData.newUri(
+                contentResolver,
+                "Selected APK",
+                apkUri
+            )
+        }
+
+        try {
+            startActivity(installIntent)
+        } catch (e: ActivityNotFoundException) {
+            showMessage("No Android package installer is available.")
+        } catch (e: SecurityException) {
+            showMessage(
+                "Installer cannot access this file. Download it to Downloads and retry."
+            )
+        } catch (e: Exception) {
+            showMessage(
+                "Could not open installer. Try downloading the APK to Downloads."
+            )
         }
     }
 
@@ -143,7 +252,7 @@ class MainActivity : Activity() {
         Toast.makeText(
             this,
             message,
-            Toast.LENGTH_SHORT
+            Toast.LENGTH_LONG
         ).show()
     }
 }
