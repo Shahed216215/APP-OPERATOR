@@ -75,8 +75,14 @@ class OperatorAccessibilityService : AccessibilityService() {
                 return
             }
 
-            // Observe only. No clicking, typing, sending, or deleting.
-            Log.d(TAG, "Authorized app window observed")
+            // Apply the sensitive-text filter before any future processing.
+            val safeElements = UIElementFinder.findElements(root)
+
+            // Never log UI text or persist snapshots.
+            Log.d(
+                TAG,
+                "Authorized app window inspected; safe elements=${safeElements.size}"
+            )
 
         } finally {
             root.recycle()
