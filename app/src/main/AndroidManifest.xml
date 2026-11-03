@@ -4,6 +4,7 @@
     <queries>
         <package android:name="com.openai.chatgpt" />
         <package android:name="com.google.android.googlequicksearchbox" />
+        <package android:name="com.anthropic.claude" />
         <package android:name="com.android.chrome" />
     </queries>
 

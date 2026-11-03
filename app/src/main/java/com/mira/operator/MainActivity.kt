@@ -301,6 +301,7 @@ class MainActivity : Activity() {
             addView(primaryButton("Open Accessibility Settings") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
             addView(primaryButton("Open ChatGPT") { openAllowedApp("com.openai.chatgpt") })
             addView(primaryButton("Open Gemini") { openAllowedApp("com.google.android.googlequicksearchbox") })
+            addView(primaryButton("Open Claude") { openAllowedApp("com.anthropic.claude") })
             val stopPrefs = getSharedPreferences("operator", MODE_PRIVATE)
             val isEmergencyStopped = stopPrefs.getBoolean("emergency_stop", false)
             addView(label(

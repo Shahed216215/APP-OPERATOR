@@ -17,6 +17,10 @@ object AppRegistry {
             displayName = "Gemini"
         ),
         AllowedApp(
+            packageName = "com.anthropic.claude",
+            displayName = "Claude"
+        ),
+        AllowedApp(
             packageName = "com.android.chrome",
             displayName = "Google Chrome"
         )
