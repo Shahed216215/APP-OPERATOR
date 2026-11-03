@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   assemble-debug:
-    name: Assemble debug APK variants
+    name: Test and assemble Operator APK variants
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -34,7 +34,7 @@ jobs:
           java-version: '17'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
 
@@ -49,21 +49,33 @@ jobs:
           gradle-version: '8.9'
           cache-provider: basic
 
-      - name: Build full debug APK
-        run: gradle --no-daemon :app:assembleDebug
+      - name: Run full and safe-demo JVM unit tests
+        run: gradle --no-daemon :app:testFullDebugUnitTest :app:testSafeDemoDebugUnitTest
 
-      - name: Upload full debug APK
+      - name: Upload JVM test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mira-operator-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: mira-operator-jvm-test-results
+          path: app/build/test-results/**/TEST-*.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Build full Operator APK
+        run: gradle --no-daemon :app:assembleFullDebug
+
+      - name: Upload full Operator APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-operator-full-apk
+          path: app/build/outputs/apk/full/debug/*.apk
           if-no-files-found: error
           retention-days: 7
 
-      - name: Build safe demo APK without Accessibility service
+      - name: Build UI-only safe demo APK
         run: gradle --no-daemon :app:assembleSafeDemoDebug
 
-      - name: Upload safe demo APK
+      - name: Upload UI-only safe demo APK
         uses: actions/upload-artifact@v4
         with:
           name: mira-operator-safe-demo-apk
