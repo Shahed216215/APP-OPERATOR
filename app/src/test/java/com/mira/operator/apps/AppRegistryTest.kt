@@ -9,13 +9,14 @@ import org.junit.Test
 class AppRegistryTest {
 
     @Test
-    fun allowsOnlyTheThreeConfiguredPackages() {
+    fun allowsOnlyTheFourConfiguredPackages() {
         val allowed = AppRegistry.getAllowedApps().map { it.packageName }.toSet()
 
         assertEquals(
             setOf(
                 "com.openai.chatgpt",
                 "com.google.android.googlequicksearchbox",
+                "com.anthropic.claude",
                 "com.android.chrome"
             ),
             allowed
@@ -26,6 +27,7 @@ class AppRegistryTest {
     fun recognizesEachConfiguredPackage() {
         assertTrue(AppRegistry.isAllowed("com.openai.chatgpt"))
         assertTrue(AppRegistry.isAllowed("com.google.android.googlequicksearchbox"))
+        assertTrue(AppRegistry.isAllowed("com.anthropic.claude"))
         assertTrue(AppRegistry.isAllowed("com.android.chrome"))
     }
 
@@ -41,6 +43,7 @@ class AppRegistryTest {
     fun returnsExpectedDisplayNames() {
         assertEquals("ChatGPT", AppRegistry.getDisplayName("com.openai.chatgpt"))
         assertEquals("Gemini", AppRegistry.getDisplayName("com.google.android.googlequicksearchbox"))
+        assertEquals("Claude", AppRegistry.getDisplayName("com.anthropic.claude"))
         assertEquals("Google Chrome", AppRegistry.getDisplayName("com.android.chrome"))
         assertNull(AppRegistry.getDisplayName("com.example.unknown"))
     }
@@ -50,7 +53,8 @@ class AppRegistryTest {
         val returned = AppRegistry.getAllowedApps() as MutableList
         returned.clear()
 
-        assertEquals(3, AppRegistry.getAllowedApps().size)
+        assertEquals(4, AppRegistry.getAllowedApps().size)
         assertTrue(AppRegistry.isAllowed("com.openai.chatgpt"))
+        assertTrue(AppRegistry.isAllowed("com.anthropic.claude"))
     }
 }
