@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   assemble-debug:
-    name: Assemble debug APK
+    name: Assemble debug APK variants
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -61,13 +61,24 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Build debug APK
+      - name: Build full debug APK
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Upload debug APK
+      - name: Upload full debug APK
         uses: actions/upload-artifact@v4
         with:
           name: mira-operator-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Build safe demo APK without Accessibility service
+        run: gradle --no-daemon :app:assembleSafeDemoDebug
+
+      - name: Upload safe demo APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-operator-safe-demo-apk
+          path: app/build/outputs/apk/safeDemo/debug/*.apk
           if-no-files-found: error
           retention-days: 7
