@@ -30,6 +30,12 @@ class OperatorAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
+        // Emergency Stop is checked before reading package or window information.
+        if (isEmergencyStopped()) {
+            activePackageName = null
+            return
+        }
+
         val packageName = event.packageName?.toString() ?: return
 
         // Only inspect user-authorized applications.
@@ -48,8 +54,15 @@ class OperatorAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun isEmergencyStopped(): Boolean =
+        getSharedPreferences("operator", MODE_PRIVATE).getBoolean("emergency_stop", false)
+
     private fun inspectActiveWindow() {
-        if (!isConnected) return
+        // Re-check immediately before retrieving the active window.
+        if (!isConnected || isEmergencyStopped()) {
+            activePackageName = null
+            return
+        }
 
         val root: AccessibilityNodeInfo =
             rootInActiveWindow ?: return
