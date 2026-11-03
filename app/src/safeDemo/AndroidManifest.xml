@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- UI-only test build: deliberately omit AccessibilityService. -->
+    <application>
+        <service
+            android:name="com.mira.operator.accessibility.OperatorAccessibilityService"
+            tools:node="remove" />
+    </application>
+
+</manifest>
