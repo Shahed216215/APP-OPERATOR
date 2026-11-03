@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - evolution-20-native-android
+      - evolution-20-real-app-foundation
   pull_request:
     branches:
       - main
       - evolution-20-native-android
+      - evolution-20-real-app-foundation
   workflow_dispatch:
 
 permissions:

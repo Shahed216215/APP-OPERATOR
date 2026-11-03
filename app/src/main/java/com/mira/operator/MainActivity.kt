@@ -85,10 +85,11 @@ class MainActivity : Activity() {
         addAuthority()
         addNavigation()
         addDestinationContent()
+        if (selectedDestination == "Civilization Core") addSelectedLayer()
         addGovernance()
         addEventStream()
-        addVision()
         addFooter()
+        addVision()
     }
 
     private fun addBrandHeader() {
@@ -211,6 +212,37 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun addSelectedLayer() {
+        heading("SELECTED LAYER")
+
+        val description = architectureLayers
+            .firstOrNull { it.first == selectedLayer }
+            ?.second ?: "Layer description is not available."
+
+        panel {
+            addView(label("SELECTED SYSTEM LAYER", 10f, muted, true))
+
+            addView(
+                label(selectedLayer, 16f, electricBlue, true).apply {
+                    setPadding(0, dp(5), 0, dp(5))
+                }
+            )
+
+            addView(label(description, 12f, muted, false))
+
+            addView(
+                label(
+                    "Selection represents an architecture navigation state, not proof of an operational module.",
+                    10f,
+                    muted,
+                    false
+                ).apply {
+                    setPadding(0, dp(8), 0, 0)
+                }
+            )
+        }
+    }
+
     private fun addCore() {
         panel {
             addView(label("UNIVERSAL CIVILIZATION CORE", 17f, graphite, true))
@@ -233,10 +265,7 @@ class MainActivity : Activity() {
                 setOnClickListener { selectedLayer = name; render() }
             }
         }
-        panel {
-            addView(label("SELECTED SYSTEM LAYER", 10f, muted, true))
-            addView(label(selectedLayer, 16f, electricBlue, true).apply { setPadding(0, dp(5), 0, 0) })
-        }
+
     }
 
     private fun addGovernance() {
