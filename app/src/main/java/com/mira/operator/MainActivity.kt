@@ -301,9 +301,22 @@ class MainActivity : Activity() {
             addView(primaryButton("Open Accessibility Settings") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
             addView(primaryButton("Open ChatGPT") { openAllowedApp("com.openai.chatgpt") })
             addView(primaryButton("Open Gemini") { openAllowedApp("com.google.android.googlequicksearchbox") })
-            addView(primaryButton("Emergency Stop preference: ON") {
-                getSharedPreferences("operator", MODE_PRIVATE).edit().putBoolean("emergency_stop", true).apply()
-                Toast.makeText(this@MainActivity, "Local stop preference saved. Service enforcement is not implemented.", Toast.LENGTH_LONG).show()
+            val stopPrefs = getSharedPreferences("operator", MODE_PRIVATE)
+            val isEmergencyStopped = stopPrefs.getBoolean("emergency_stop", false)
+            addView(label(
+                "Emergency Stop pauses Mira's accessibility-event processing. Android's Accessibility Service remains enabled until you disable it in system settings.",
+                10f, muted, false
+            ).apply { setPadding(0, dp(8), 0, dp(8)) })
+            addView(primaryButton(if (isEmergencyStopped) "Resume Observation" else "Emergency Stop") {
+                val stopNow = !stopPrefs.getBoolean("emergency_stop", false)
+                stopPrefs.edit().putBoolean("emergency_stop", stopNow).apply()
+                addEvent(if (stopNow) "Emergency Stop enabled" else "Observation resumed by user")
+                Toast.makeText(
+                    this@MainActivity,
+                    if (stopNow) "Observation stopped." else "Observation resumed.",
+                    Toast.LENGTH_LONG
+                ).show()
+                render()
             })
         }
     }
