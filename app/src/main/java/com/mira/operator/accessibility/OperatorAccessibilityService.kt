@@ -96,7 +96,6 @@ class OperatorAccessibilityService : AccessibilityService() {
                 }
                 else -> "REJECTED_UNKNOWN_ACTION"
             }
-            OperatorAuditLog.record(applicationContext, actionType, expectedPackage, result.substringBefore(':').take(48))
             return result
         } finally {
             root.recycle()
