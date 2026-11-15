@@ -143,7 +143,7 @@ class MainActivity : Activity() {
             append("\nEmergency Stop: ")
             append(if (stopped) "ON" else "OFF")
             append("\nMira Bridge: NOT CONNECTED")
-            append("\nMode: OBSERVE ONLY — action execution is not enabled yet.")
+            append("\nMode: Each supported action requires a separate approval.")
         }
 
         stopButton.text = if (stopped) "Resume (manual confirmation required)" else "Emergency Stop"
