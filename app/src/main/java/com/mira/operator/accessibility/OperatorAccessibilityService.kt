@@ -23,6 +23,7 @@ class OperatorAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        AppRegistry.initialize(applicationContext)
         instance = this
         isConnected = true
         OperatorAuditLog.record(applicationContext, "ACCESSIBILITY_CONNECTED", packageName, "CONNECTED")
