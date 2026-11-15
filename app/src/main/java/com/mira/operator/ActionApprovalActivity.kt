@@ -57,8 +57,8 @@ class ActionApprovalActivity : Activity() {
                     append("\nExpected screen/conversation: ")
                     append(contextLabel)
                 }
-                if (action == "SET_TEXT") {
-                    append("\nExact text to enter:\n")
+                if (action == "SET_TEXT" || action == "SUBMIT_SEARCH" || action == "SEND_CHAT") {
+                    append("\nExact text/content:\n")
                     append(value)
                 }
                 append("\n\nThis approval applies to this one action only.")
@@ -77,7 +77,7 @@ class ActionApprovalActivity : Activity() {
                         val service = OperatorAccessibilityService.instance
                         val result = service?.executeApprovedAction(
                             action, targetPackage, target.ifBlank { null },
-                            value.takeIf { action == "SET_TEXT" },
+                            value.takeIf { action in setOf("SET_TEXT", "SUBMIT_SEARCH", "SEND_CHAT") },
                             contextLabel.ifBlank { null }
                         ) ?: "INCONCLUSIVE_SERVICE_DISCONNECTED"
                         finishWithReceipt(action, targetPackage, result)
@@ -105,9 +105,14 @@ class ActionApprovalActivity : Activity() {
     }
 
     private fun isValidRequest(action: String, targetPackage: String, requestId: String): Boolean {
-        val supported = setOf("INSPECT_UI", "TAP_TEXT", "SET_TEXT", "BACK", "SWIPE_UP", "SWIPE_DOWN")
+        val supported = setOf("INSPECT_UI", "TAP_TEXT", "SET_TEXT", "SUBMIT_SEARCH", "SEND_CHAT", "BACK", "SWIPE_UP", "SWIPE_DOWN")
         if (action !in supported || !AppRegistry.isAllowed(targetPackage)) return false
         if (requestId.isBlank() || requestId.length > 96) return false
+        if (action in setOf("SUBMIT_SEARCH", "SEND_CHAT") &&
+            (intent.getStringExtra(EXTRA_TARGET).isNullOrBlank() ||
+             intent.getStringExtra(EXTRA_VALUE).isNullOrBlank() ||
+             intent.getStringExtra(EXTRA_CONTEXT).isNullOrBlank())
+        ) return false
         if (OperatorAccessibilityService.activePackageName != targetPackage) return false
         if (getSharedPreferences("operator", MODE_PRIVATE).getBoolean("emergency_stop", true)) return false
         return true
@@ -117,6 +122,8 @@ class ActionApprovalActivity : Activity() {
         "INSPECT_UI" -> "Read visible interface structure (no passwords or editable contents)"
         "TAP_TEXT" -> "Tap the unique visible element named above"
         "SET_TEXT" -> "Write the exact text above into one non-password field"
+        "SUBMIT_SEARCH" -> "Submit the exact search query shown above"
+        "SEND_CHAT" -> "Send the exact message shown above to the named conversation"
         "BACK" -> "Android Back navigation"
         "SWIPE_UP" -> "Swipe up once"
         "SWIPE_DOWN" -> "Swipe down once"
