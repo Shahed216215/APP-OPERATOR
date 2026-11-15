@@ -90,6 +90,20 @@ class OperatorAccessibilityService : AccessibilityService() {
                 ) {
                     "REJECTED_INVALID_TEXT_REQUEST"
                 } else setTextByViewId(root, target, value, expectedPackage)
+                "SUBMIT_SEARCH" -> if (target.isNullOrBlank() || value.isNullOrBlank() ||
+                    value.length > 500 || expectedContext.isNullOrBlank()
+                ) {
+                    "REJECTED_INVALID_SEARCH_REQUEST"
+                } else submitExactTextAction(
+                    root, target, value, expectedPackage, listOf("Search", "Go", "Find")
+                )
+                "SEND_CHAT" -> if (target.isNullOrBlank() || value.isNullOrBlank() ||
+                    value.length > 2000 || expectedContext.isNullOrBlank()
+                ) {
+                    "REJECTED_INVALID_CHAT_REQUEST"
+                } else submitExactTextAction(
+                    root, target, value, expectedPackage, listOf("Send", "Send message")
+                )
                 "INSPECT_UI" -> {
                     val snapshot = UIElementFinder.findElements(root, 200)
                     "OBSERVED_${snapshot.size}_NODES"
@@ -196,6 +210,64 @@ class OperatorAccessibilityService : AccessibilityService() {
         } finally {
             selected.recycle()
         }
+    }
+
+
+    /**
+     * Submits a search/message only when the exact previewed text is still
+     * present in the named non-password composer and the expected context is visible.
+     * The content is checked in memory and never logged or persisted.
+     */
+    private fun submitExactTextAction(
+        root: AccessibilityNodeInfo,
+        fieldViewId: String,
+        exactText: String,
+        expectedPackage: String,
+        buttonLabels: List<String>
+    ): String {
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+        var exactFieldCount = 0
+        var passwordFieldPresent = false
+        var authenticationScreenDetected = false
+        val authMarkers = listOf("password", "passcode", "sign in", "log in", "login", "one-time code", "verification code", "otp")
+        try {
+            while (stack.isNotEmpty()) {
+                val node = stack.removeLast()
+                val isRoot = node === root
+                try {
+                    if (node.packageName?.toString() != expectedPackage) continue
+                    if (node.isPassword) passwordFieldPresent = true
+                    val label = node.text?.toString()?.lowercase().orEmpty()
+                    if (authMarkers.any { label.contains(it) }) authenticationScreenDetected = true
+                    if (node.viewIdResourceName == fieldViewId && node.isEditable &&
+                        node.isEnabled && !node.isPassword &&
+                        node.text?.toString() == exactText
+                    ) {
+                        exactFieldCount++
+                    }
+                    for (i in 0 until node.childCount) node.getChild(i)?.let { stack.add(it) }
+                } finally {
+                    if (!isRoot) node.recycle()
+                }
+            }
+        } finally {
+            while (stack.isNotEmpty()) {
+                val node = stack.removeLast()
+                if (node !== root) node.recycle()
+            }
+        }
+
+        if (passwordFieldPresent || authenticationScreenDetected) return "REJECTED_AUTHENTICATION_SCREEN"
+        if (exactFieldCount == 0) return "REJECTED_PREVIEW_TEXT_CHANGED"
+        if (exactFieldCount != 1) return "REJECTED_AMBIGUOUS_COMPOSER"
+
+        for (label in buttonLabels) {
+            val result = clickUniqueText(root, label, expectedPackage)
+            if (result == "DISPATCHED") return result
+            if (result == "REJECTED_AMBIGUOUS_TARGET") return result
+        }
+        return "REJECTED_SUBMIT_BUTTON_NOT_FOUND"
     }
 
     private fun setTextByViewId(
