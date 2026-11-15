@@ -19,6 +19,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppRegistry.initialize(this)
         buildScreen()
     }
 
@@ -53,6 +54,11 @@ class MainActivity : Activity() {
         val refreshButton = Button(this).apply {
             text = "Refresh permission status"
             setOnClickListener { refreshStatus() }
+        }
+
+        val appsButton = Button(this).apply {
+            text = "Choose which apps Mira may access"
+            setOnClickListener { showAppAllowlist() }
         }
 
         val stop = Button(this).apply {
@@ -109,6 +115,7 @@ class MainActivity : Activity() {
         layout.addView(statusText)
         layout.addView(accessibilityButton)
         layout.addView(refreshButton)
+        layout.addView(appsButton)
         layout.addView(stopButton)
         layout.addView(chatGptButton)
         layout.addView(geminiButton)
@@ -142,6 +149,8 @@ class MainActivity : Activity() {
             append(if (com.mira.operator.accessibility.OperatorAccessibilityService.isConnected) "YES" else "NO")
             append("\nEmergency Stop: ")
             append(if (stopped) "ON" else "OFF")
+            append("\nAllowed apps: ")
+            append(AppRegistry.getAllowedApps(this@MainActivity).size)
             append("\nMira Bridge: NOT CONNECTED")
             append("\nMode: Each supported action requires a separate approval.")
         }
@@ -171,6 +180,26 @@ class MainActivity : Activity() {
                 )
                 refreshStatus()
             }
+            .show()
+    }
+
+    private fun showAppAllowlist() {
+        val apps = AppRegistry.getLaunchableApps(this)
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "No launchable apps were found", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = apps.map { "${it.displayName}  (${it.packageName})" }.toTypedArray()
+        val checked = BooleanArray(apps.size) { index ->
+            AppRegistry.isAllowed(apps[index].packageName)
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Apps Mira may access")
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
+                AppRegistry.setAllowed(this, apps[which].packageName, isChecked)
+            }
+            .setPositiveButton("Done") { _, _ -> refreshStatus() }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
