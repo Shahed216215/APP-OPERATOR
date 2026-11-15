@@ -44,7 +44,7 @@ class ActionApprovalActivity : Activity() {
             setPadding(0, 24, 0, 24)
             text = buildString {
                 append("App: ")
-                append(AppRegistry.getDisplayName(targetPackage) ?: targetPackage)
+                append(AppRegistry.getDisplayName(this@ActionApprovalActivity, targetPackage) ?: targetPackage)
                 append("\nPackage: ")
                 append(targetPackage)
                 append("\nAction: ")
