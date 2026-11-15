@@ -10,7 +10,6 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import com.mira.operator.apps.AppRegistry
 
 class MainActivity : Activity() {
@@ -115,7 +114,7 @@ class MainActivity : Activity() {
         val stopped = prefs.getBoolean("emergency_stop", true)
         val next = !stopped
 
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this)
             .setTitle(if (next) "Emergency Stop" else "Resume Operator")
             .setMessage(
                 if (next) "Stop all queued and future automation actions?"
