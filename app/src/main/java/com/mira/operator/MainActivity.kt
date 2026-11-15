@@ -70,6 +70,41 @@ class MainActivity : Activity() {
             setOnClickListener { openAllowedApp("com.google.android.googlequicksearchbox") }
         }
 
+        val inspectButton = Button(this).apply {
+            text = "Inspect current app (approval required)"
+            setOnClickListener { requestOneAction("INSPECT_UI") }
+        }
+
+        val backButton = Button(this).apply {
+            text = "Back (approval required)"
+            setOnClickListener { requestOneAction("BACK") }
+        }
+
+        val swipeUpButton = Button(this).apply {
+            text = "Swipe up (approval required)"
+            setOnClickListener { requestOneAction("SWIPE_UP") }
+        }
+
+        val swipeDownButton = Button(this).apply {
+            text = "Swipe down (approval required)"
+            setOnClickListener { requestOneAction("SWIPE_DOWN") }
+        }
+
+        val auditButton = Button(this).apply {
+            text = "View local action audit"
+            setOnClickListener {
+                android.app.AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Local audit metadata")
+                    .setMessage(OperatorAuditLog.exportMetadata(this@MainActivity))
+                    .setPositiveButton("Close", null)
+                    .setNeutralButton("Clear log") { _, _ ->
+                        OperatorAuditLog.clear(this@MainActivity)
+                        Toast.makeText(this@MainActivity, "Audit log cleared", Toast.LENGTH_SHORT).show()
+                    }
+                    .show()
+            }
+        }
+
         layout.addView(title)
         layout.addView(statusText)
         layout.addView(accessibilityButton)
@@ -77,6 +112,11 @@ class MainActivity : Activity() {
         layout.addView(stopButton)
         layout.addView(chatGptButton)
         layout.addView(geminiButton)
+        layout.addView(inspectButton)
+        layout.addView(backButton)
+        layout.addView(swipeUpButton)
+        layout.addView(swipeDownButton)
+        layout.addView(auditButton)
         setContentView(layout)
         refreshStatus()
     }
@@ -132,6 +172,20 @@ class MainActivity : Activity() {
                 refreshStatus()
             }
             .show()
+    }
+
+    private fun requestOneAction(action: String) {
+        val targetPackage = com.mira.operator.accessibility.OperatorAccessibilityService.activePackageName
+        if (targetPackage.isNullOrBlank()) {
+            Toast.makeText(this, "No allowlisted app is active. Enable Accessibility, resume, then open an allowed app.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val request = Intent(this, ActionApprovalActivity::class.java).apply {
+            putExtra(ActionApprovalActivity.EXTRA_ACTION, action)
+            putExtra(ActionApprovalActivity.EXTRA_PACKAGE, targetPackage)
+            putExtra(ActionApprovalActivity.EXTRA_REQUEST_ID, java.util.UUID.randomUUID().toString())
+        }
+        startActivity(request)
     }
 
     private fun openAllowedApp(targetPackage: String) {
