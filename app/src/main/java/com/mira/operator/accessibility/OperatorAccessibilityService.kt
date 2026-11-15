@@ -209,6 +209,8 @@ class OperatorAccessibilityService : AccessibilityService() {
         stack.add(root)
         val matches = mutableListOf<AccessibilityNodeInfo>()
         var passwordFieldPresent = false
+        var authenticationScreenDetected = false
+        val authMarkers = listOf("password", "passcode", "sign in", "log in", "login", "one-time code", "verification code", "otp")
         try {
             while (stack.isNotEmpty()) {
                 val node = stack.removeLast()
@@ -216,6 +218,10 @@ class OperatorAccessibilityService : AccessibilityService() {
                 try {
                     if (node.packageName?.toString() != expectedPackage) continue
                     if (node.isPassword) passwordFieldPresent = true
+                    val visibleLabel = node.text?.toString()?.lowercase().orEmpty()
+                    if (authMarkers.any { marker -> visibleLabel.contains(marker) }) {
+                        authenticationScreenDetected = true
+                    }
                     if (node.viewIdResourceName == viewId && node.isEditable && node.isEnabled && !node.isPassword) {
                         matches.add(AccessibilityNodeInfo.obtain(node))
                     }
@@ -230,7 +236,7 @@ class OperatorAccessibilityService : AccessibilityService() {
                 if (node !== root) node.recycle()
             }
         }
-        if (passwordFieldPresent) {
+        if (passwordFieldPresent || authenticationScreenDetected) {
             matches.forEach { it.recycle() }
             return "REJECTED_AUTHENTICATION_SCREEN"
         }
