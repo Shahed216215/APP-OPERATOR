@@ -4,7 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.util.Log
-import com.mira.operator.apps.AppRegistry
+import com.mira.operator.security.AppConsentManager
+import com.mira.operator.security.EmergencyStopController
 
 class OperatorAccessibilityService : AccessibilityService() {
 
@@ -28,12 +29,17 @@ class OperatorAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (EmergencyStopController.isEmergencyStopEnabled(this)) {
+            activePackageName = null
+            return
+        }
+
         if (event == null) return
 
         val packageName = event.packageName?.toString() ?: return
 
         // Only inspect user-authorized applications.
-        if (!AppRegistry.isAllowed(packageName)) {
+        if (!AppConsentManager.isAuthorized(this, packageName)) {
             activePackageName = null
             return
         }
@@ -43,21 +49,37 @@ class OperatorAccessibilityService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-                inspectActiveWindow()
+                inspectActiveWindow(packageName)
             }
         }
     }
 
-    private fun inspectActiveWindow() {
-        if (!isConnected) return
+    private fun inspectActiveWindow(expectedPackageName: String) {
+        if (!isConnected ||
+            EmergencyStopController.isEmergencyStopEnabled(this) ||
+            !AppConsentManager.isAuthorized(this, expectedPackageName)
+        ) {
+            activePackageName = null
+            return
+        }
 
         val root: AccessibilityNodeInfo =
             rootInActiveWindow ?: return
 
         try {
+            if (EmergencyStopController.isEmergencyStopEnabled(this) ||
+                !AppConsentManager.isAuthorized(this, expectedPackageName)
+            ) {
+                activePackageName = null
+                return
+            }
+
             val packageName = root.packageName?.toString() ?: return
 
-            if (!AppRegistry.isAllowed(packageName)) {
+            if (packageName != expectedPackageName ||
+                !AppConsentManager.isAuthorized(this, packageName)
+            ) {
+                activePackageName = null
                 return
             }
 
@@ -71,8 +93,9 @@ class OperatorAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        Log.w(TAG, "Accessibility service interrupted")
+        isConnected = false
         activePackageName = null
+        Log.w(TAG, "Accessibility service interrupted")
     }
 
     override fun onDestroy() {

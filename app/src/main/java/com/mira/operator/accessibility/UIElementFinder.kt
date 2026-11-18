@@ -1,9 +1,10 @@
 
 package com.mira.operator.accessibility
 
+import android.content.Context
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
-import com.mira.operator.apps.AppRegistry
+import com.mira.operator.security.AppConsentManager
 
 data class UIElementSnapshot(
     val text: String?,
@@ -36,6 +37,7 @@ object UIElementFinder {
      * - Child nodes obtained with getChild() are recycled here.
      */
     fun findElements(
+        context: Context,
         root: AccessibilityNodeInfo?,
         maxNodes: Int = MAX_NODES
     ): List<UIElementSnapshot> {
@@ -45,7 +47,7 @@ object UIElementFinder {
         val packageName = root.packageName?.toString()
             ?: return emptyList()
 
-        if (!AppRegistry.isAllowed(packageName)) {
+        if (!AppConsentManager.isAuthorized(context, packageName)) {
             return emptyList()
         }
 
@@ -64,7 +66,14 @@ object UIElementFinder {
                 try {
                     if (depth > MAX_DEPTH) continue
 
-                    // Verify the node still belongs to an authorized app.
+                    // Recheck consent during traversal. Revocation discards
+                    // the partial snapshot and stops further inspection.
+                    if (!AppConsentManager.isAuthorized(context, packageName)) {
+                        results.clear()
+                        break
+                    }
+
+                    // Verify the node still belongs to the original app.
                     val nodePackage = node.packageName?.toString()
                     if (nodePackage != packageName) continue
 
@@ -127,7 +136,11 @@ object UIElementFinder {
             }
         }
 
-        return results
+        return if (AppConsentManager.isAuthorized(context, packageName)) {
+            results
+        } else {
+            emptyList()
+        }
     }
 
     fun findByText(
